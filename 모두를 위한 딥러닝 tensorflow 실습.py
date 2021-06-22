@@ -258,6 +258,8 @@ y_data = [[152], [185], [180], [196], [142]]
 x = tf.placeholder(tf.float32, shape=[None,3])
 y = tf.placeholder(tf.float32, shape=[None,1])
 
+#w는 normal([들어오는 값,나가는 값])
+#b는 nomal([나가는 값])
 w = tf.Variable(tf.random_normal([3,1]), name='weight')
 b = tf.Variable(tf.random_normal([1]), name='bias')
 
@@ -301,6 +303,8 @@ y_data = xy[:, [-1]]
 x = tf.placeholder(tf.float32, shape=[None,3])
 y = tf.placeholder(tf.float32, shape=[None,1])
 
+#w는 normal([들어오는 값,나가는 값])
+#b는 nomal([나가는 값])
 w = tf.Variable(tf.random_normal([3,1]), name='weight')
 b = tf.Variable(tf.random_normal([1]), name='bias')
 
@@ -344,6 +348,8 @@ train_x_batch, train_y_batch = \
 x = tf.placeholder(tf.float32, shape=[None,3])
 y = tf.placeholder(tf.float32, shape=[None,1])
 
+#w는 normal([들어오는 값,나가는 값])
+#b는 nomal([나가는 값])
 w = tf.Variable(tf.random_normal([3,1]), name='weight')
 b = tf.Variable(tf.random_normal([1]), name='bias')
 
@@ -380,6 +386,9 @@ y_data = [[0],[0],[0],[1],[1],[1]]
 
 x = tf.placeholder(tf.float32, shape=[None,2])
 y = tf.placeholder(tf.float32, shape=[None,1])
+
+#w는 normal([들어오는 값,나가는 값])
+#b는 nomal([나가는 값])
 w = tf.Variable(tf.random_normal([2,1]), name='weight')
 b = tf.Variable(tf.random_normal([1]), name='bias')
 
@@ -420,6 +429,9 @@ y_data=xy[:,[-1]]
 
 x = tf.placeholder(tf.float32, shape=[None,8])
 y = tf.placeholder(tf.float32, shape=[None,1])
+
+#w는 normal([들어오는 값,나가는 값])
+#b는 nomal([나가는 값])
 w = tf.Variable(tf.random_normal([8,1]), name='weight')
 b = tf.Variable(tf.random_normal([1]), name='bias')
 
@@ -447,5 +459,251 @@ with tf.Session() as sess:
     h,c,a = sess.run([hypothesis,predicted,accuracy], feed_dict={x: x_data, y:y_data})
     print("\nHypothesis:",h,"\ncorrect(y):",c,"\nAccuracy:",a)
 # -
+# # 06-1) Softmax Classification 구현
 
 
+# ### 배운 이론을 식으로 정리
+
+# +
+#먼저 XW=Y를 만들어주기 위해
+Z = tf.matmul(x,w)+b
+
+#hypothesis에 기존에는 sigmoid함수를 사용했다면
+hypothesis = tf.nn.softmax(Z)
+
+#cost function으로 나타내기
+cost= tf.reduce_mean(-tf.reduce_sum(y*tf.log(hypothesis),axis=1))
+
+#cost function 최소화하기
+optimizer = tf.train.GradienDescentOptimizer(learning_rate=0.1).minimize(cost)
+
+#arg_max
+#훈련시킨 다음, 데이터를 넣어서 hypothesis로 나온 값을 one-hot codind된 수로 출력하기
+a = sess.run(hypothesis, feed_dict={x:[넣을 데이터 값]})
+print(a, sess.run(tf.arg_max(a,1)))
+# -
+
+# ### 실제 구현
+
+# +
+import tensorflow as tf
+import numpy as np
+
+x_data = [[1,2,1,1,],[2,1,3,2,],[3,1,3,4,],[4,1,5,5,],[1,7,5,5],[1,2,5,6],[1,6,6,6,],[1,7,7,7,]]
+#one-hot encoding
+y_data = [[0,0,1],[0,0,1],[0,0,1],[0,1,0],[0,1,0],[0,1,0],[1,0,0],[1,0,0]]
+
+x=tf.placeholder("float",[None, 4])
+y=tf.placeholder("float",[None, 3])
+nb_classes = 3
+
+#w는 normal([들어오는 값,나가는 값])
+#b는 nomal([나가는 값])
+w = tf.Variable(tf.random_normal([4, nb_classes]), name = 'weight')
+b = tf.Variable(tf.random_normal([nb_classes]), name = 'bias')
+
+hypothesis = tf.nn.softmax(tf.matmul(x,w)+b)
+
+#cross entropy cost/loss
+cost = tf.reduce_mean(-tf.reduce_sum(y*tf.log(hypothesis), axis=1))
+optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.1).minimize(cost)
+
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+    for step in range(2000):
+        sess.run(optimizer, feed_dict={x:x_data, y:y_data})
+    
+    a = sess.run(hypothesis, feed_dict={x: [[1,11,7,9],[1,3,4,3],[1,1,0,1]]})
+    print(a, sess.run(tf.math.argmax(a,1)))
+
+# -
+
+# # 06-2) Fancy한 Softmax Classifier
+
+# cross_entropy, one_hot, reshape 함수를 사용
+
+# ### tf.nn.softmax_cross_entropy_with_logits
+
+# +
+logits_x = tf.matual(x,w)+b
+hypothesis = tf.nn.softmax(logits_x)
+
+#1 기존
+cost = tf.reduce_mean(-tf.reduce_sum(y*tf.log(hpyothesis), axis=1))
+
+#2 함수 사용
+cost_i = tf.nn.softmax_cross_entropy_with_logits(logits = logits_x,
+                                                labels = y)
+cost = tf.reduce_mean(cost_i)
+# -
+
+# ### tf.one_hot() & tf.reshape()
+# one_hot으로 인해 실제 데이터에 한 차원이 더 생김. reshape으로 되돌려줌
+
+nb_classes = 7 #y값의 범위. 해당예시) 0~6
+y = tf.placholder(tf.int32,[None,1]) #shape=(?,1)
+y_one_hot = tf.one_hot(y,nb_classes) #shape=(?,1,7)
+y_one_hot = tf.reshape(Y_one_hot, [-1,nb_classes]) #shape=(?,7)
+
+# ### 실제 데이터로 classification
+# TF버전이 바뀌면서 돌아가지 않음
+#
+# TF2 버전 코드
+#
+# https://github.com/hunkim/DeepLearningZeroToAll/tree/master/tf2
+
+# +
+import tensorflow as tf
+import numpy as np
+
+#predicting animal type based on various features
+xy = np.loadtxt('data-04-zoo.csv', delimiter=',', dtype=np.float32)
+x_data = xy[:,:-1]
+y_data = xy[:, [-1]]
+
+nb_classes = 7
+
+x = tf.placeholder(tf.float32, [None,16])
+y = tf.placeholder(tf.int32, [None,1])
+
+y_one_hot = tf.one_hot(y,nb_classes)
+y_one_hot = tf.reshape(y_one_hot, [-1, nb_classes])
+
+w = tf.Variable(tf.random_normal([16,nb_classes]), name = 'weight')
+b = tf.Variable(tf.random_normal([nb_classes]), name = 'weight')
+
+logits = tf.matmul(x,w)+b
+hypothesis = tf.nn.softmax(logits)
+
+cost_i = tf.nn.softmax_cross_entropy_with_logits(logits=logits,labels=y_one_hot)
+cost = tf.reduce_mean(cost_i)
+
+optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.1).minimize(cost)
+
+prediction = tf.argmax(hypothesis,1)
+answer = tf.equal(prediction, tf.argmax(y_one_hot,1))
+accuracy = tf.reduce_mean(tf.cast(answer,prediction, tf.float32))
+
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+    for step in range(2001):
+        sess.run(optimizer, feed_dict={x:x_data, y:y_data})
+        if step %100 == 0:
+            lass, acc = sess.run([cost, accuracy], feed_dict={x:x_data, y:y_data})
+            print("step:{:5}\tLoss: {:.3f}\t.Acc: {:.2%}".format(step,loss,acc))
+    
+    predict = sess.run(prediction, feed_data={x:x_data})
+    
+    for p,y in zip(predict,y_data.flatten()):
+        print("[{}] Prediction: {} Real Y: {}".format(p==int(y),p,int(y)))
+# -
+
+# # 07-1) training/test dataset, learning rate, normalization
+
+# ### Min_max normalization
+
+# +
+import tensorflow as tf
+import numpy as np
+
+
+def min_max_scaler(data):
+    numerator = data - np.min(data, 0)
+    denominator = np.max(data, 0) - np.min(data, 0)
+    # noise term prevents the zero division
+    return numerator / (denominator + 1e-7)
+
+
+xy = np.array(
+    [
+        [828.659973, 833.450012, 908100, 828.349976, 831.659973],
+        [823.02002, 828.070007, 1828100, 821.655029, 828.070007],
+        [819.929993, 824.400024, 1438100, 818.97998, 824.159973],
+        [816, 820.958984, 1008100, 815.48999, 819.23999],
+        [819.359985, 823, 1188100, 818.469971, 818.97998],
+        [819, 823, 1198100, 816, 820.450012],
+        [811.700012, 815.25, 1098100, 809.780029, 813.669983],
+        [809.51001, 816.659973, 1398100, 804.539978, 809.559998],
+    ]
+)
+
+# very important. It does not work without it.
+xy = min_max_scaler(xy)
+print(xy)
+
+'''
+[[0.99999999 0.99999999 0.         1.         1.        ]
+ [0.70548491 0.70439552 1.         0.71881782 0.83755791]
+ [0.54412549 0.50274824 0.57608696 0.606468   0.6606331 ]
+ [0.33890353 0.31368023 0.10869565 0.45989134 0.43800918]
+ [0.51436    0.42582389 0.30434783 0.58504805 0.42624401]
+ [0.49556179 0.42582389 0.31521739 0.48131134 0.49276137]
+ [0.11436064 0.         0.20652174 0.22007776 0.18597238]
+ [0.         0.07747099 0.5326087  0.         0.        ]]
+'''
+
+x_data = xy[:, 0:-1]
+y_data = xy[:, [-1]]
+
+tf.model = tf.keras.Sequential()
+tf.model.add(tf.keras.layers.Dense(units=1, input_dim=4))
+tf.model.add(tf.keras.layers.Activation('linear'))
+tf.model.compile(loss='mse', optimizer=tf.keras.optimizers.SGD(lr=1e-5))
+tf.model.summary()
+
+history = tf.model.fit(x_data, y_data, epochs=1000)
+
+predictions = tf.model.predict(x_data)
+score = tf.model.evaluate(x_data, y_data)
+
+print('Prediction: \n', predictions)
+print('Cost: ', score)
+# -
+
+# ### Learning rate and Evaluation
+
+# +
+# Lab 7 Learning rate and Evaluation
+import tensorflow as tf
+
+x_data = [[1, 2, 1],
+          [1, 3, 2],
+          [1, 3, 4],
+          [1, 5, 5],
+          [1, 7, 5],
+          [1, 2, 5],
+          [1, 6, 6],
+          [1, 7, 7]]
+y_data = [[0, 0, 1],
+          [0, 0, 1],
+          [0, 0, 1],
+          [0, 1, 0],
+          [0, 1, 0],
+          [0, 1, 0],
+          [1, 0, 0],
+          [1, 0, 0]]
+
+# Evaluation our model using this test dataset
+x_test = [[2, 1, 1],
+          [3, 1, 2],
+          [3, 3, 4]]
+y_test = [[0, 0, 1],
+          [0, 0, 1],
+          [0, 0, 1]]
+
+# try different learning_rate
+# learning_rate = 65535  # ? it works too hahaha
+learning_rate = 0.1
+# learning_rate = 1e-10  # small learning rate won't work either
+
+tf.model = tf.keras.Sequential()
+tf.model.add(tf.keras.layers.Dense(units=3, input_dim=3, activation='softmax'))
+tf.model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.SGD(lr=learning_rate), metrics=['accuracy'])
+
+tf.model.fit(x_data, y_data, epochs=1000)
+
+# predict
+print("Prediction: ", tf.model.predict_classes(x_test))
+
+# Calculate the accuracy
+print("Accuracy: ", tf.model.evaluate(x_test, y_test)[1])
