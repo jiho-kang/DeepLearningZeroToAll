@@ -707,3 +707,318 @@ print("Prediction: ", tf.model.predict_classes(x_test))
 
 # Calculate the accuracy
 print("Accuracy: ", tf.model.evaluate(x_test, y_test)[1])
+# -
+
+# # 08) Tensor Manipluation
+
+# #### simple ID array and slicing
+
+# +
+import numpy as np
+import pprint as pp
+
+t = np.array([0.,1.,2.,3.,4.,5.,6.])
+pp.pprint(t)
+print(t.ndim) #rank #1차원
+print(t.shape) #shape #모양, 몇 개가 있는지
+print(t[0], t[1], t[2])
+print(t[0:-1])
+
+# +
+import numpy as np
+import pprint as pp
+
+t = np.array([[1.,2.,3.],[4.,5.,6.],[7.,8.,9.],[10.,11.,12.]])
+pp.pprint(t)
+print(t.ndim) #rank:2차원, 첫 '[' 갯수
+print(t.shape) #shape: 뒤에서부터 가장 안쪽 차원에 있는 원소의 갯수
+print(t[0], t[1], t[2])
+print(t[0:-1])
+# -
+
+# #### Shape, Rank, Axis
+#     rank: 2 -> shape:[?,?]
+#     rank: 3 -> shape:[?,?,?]
+#     Axis는 매트리스를 표현했을 때, y축을 의미. 왼쪽부터 0
+#     위에서는 axis = 0은 [1,4,7,10]부분.
+#     axis = 1은 [1,2,3], [4,5,6], [7,8,9], [10,11,12]를 의미.
+#     아직 axis개념 부족
+
+# +
+import tensorflow as tf
+sess=tf.Session()
+
+t = tf.constant([1,2,3,4])
+tf.shape(t).eval(session=sess)
+# -
+
+t = tf.constant([[1,2],[3,4]])
+tf.shape(t).eval(session=sess)
+
+t = tf.constant([[[[1,2,3,4],[5,6,7,8,],[9,10,11,12]],
+                  [[13,14,15,16],[17,18,19,20],[21,22,23,24]]]])
+tf.shape(t).eval(session=sess)
+
+# #### Matmul VS multiply
+# matmul은 매트릭스의 곱이고, 단순 multiply는 산수곱이다.
+
+# +
+import tensorflow as tf
+sess=tf.Session()
+
+matrix1 = tf.constant([[1,2],[3,4]])
+matrix2 = tf.constant([[1],[2]])
+print("matrix1 shape: ", matrix1.shape)
+print("matrix2 shape: ", matrix2.shape)
+print(tf.matmul(matrix1,matrix2).eval(session=sess))
+print(tf.matmul(matrix1,matrix2).shape)
+# -
+
+(matrix1*matrix2).eval(session=sess)
+
+# #### Reduce mean / Reduce_sum
+# int가 아닌 float으로 계산해야 함
+
+# +
+import tensorflow as tf
+sess=tf.Session()
+
+print(tf.reduce_mean([1,2], axis = 0).eval(session=sess))
+print(tf.reduce_sum([1,2], axis = 0).eval(session=sess))
+
+# +
+x = [[1.,2.],[3.,4.]]
+
+print(tf.reduce_mean(x).eval(session=sess))
+print(tf.reduce_sum(x).eval(session=sess))
+# -
+
+print(tf.reduce_mean(x, axis = 0).eval(session=sess))
+print(tf.reduce_sum(x, axis = 0).eval(session=sess))
+
+print(tf.reduce_mean(x, axis = 1).eval(session=sess))
+print(tf.reduce_sum(x, axis = 1).eval(session=sess))
+
+print(tf.reduce_mean(x, axis = -1).eval(session=sess))
+print(tf.reduce_sum(x, axis = -1).eval(session=sess))
+
+tf.reduce_mean(tf.reduce_sum(x, axis = -1)).eval(session=sess)
+
+# #### Argmax
+# 가장 큰 값의 위치 찾기
+
+x = [[0,1,2],
+     [2,1,0]]
+tf.argmax(x, axis = 0).eval(session=sess)
+
+tf.argmax(x, axis = 1).eval(session=sess)
+
+tf.argmax(x, axis = -1).eval(session=sess)
+
+# #### Reshape
+
+t = np.array([[[0,1,2],
+               [3,4,5]],
+              
+              [[6,7,8],
+               [9,10,11]]])
+t.shape
+
+tf.reshape(t, shape=[-1,3]).eval(session=sess)
+
+tf.reshape(t, shape=[-1,1,3]).eval(session=sess)
+
+# Reshape (squeeze, expand)
+
+# +
+import tensorflow as tf
+sess=tf.Session()
+
+tf.squeeze([[0],[1],[2]]).eval(session=sess)
+# -
+
+tf.expand_dims([0,1,2],1).eval(session=sess)
+
+# #### one hot
+# one_hot을 사용하면 rank가 하나 더 추가되므로, reshape으로 바꾸어줌
+
+# +
+import tensorflow as tf
+sess=tf.Session()
+
+t = tf.one_hot([[0],[1],[2],[1],[3]], depth = 4).eval(session=sess)
+print(t)
+# -
+
+tf.reshape(t, shape=[-1,4]).eval(session=sess)
+
+# #### Casting
+# 정수로 바꾸기
+
+tf.cast([1.8,2.2,3.3,4.9], tf.int32).eval(session=sess)
+
+tf.cast([True, False, 1 == 1, 0 == 1], tf.int32).eval(session=sess)
+
+# #### Stack
+
+# +
+x = [1,4,7]
+y = [2,5,8]
+z = [3,6,9]
+
+tf.stack([x,y,z]).eval(session=sess)
+# -
+
+tf.stack([x,y,z], axis = 0).eval(session=sess)
+
+tf.stack([x,y,z], axis = 1).eval(session=sess)
+
+tf.stack([x,y,z], axis = -1).eval(session=sess)
+
+# #### Ones and Zeros like
+# 똑같은 모양으로 1 or 0으로 채워진 tens를 만들고 싶다.
+
+x =[[0,1,2],
+    [2,1,0]]
+tf.ones_like(x).eval(session=sess)
+
+tf.zeros_like(x).eval(session=sess)
+
+# #### Zip
+
+for x,y in zip([1,2,3],[4,5,6]):
+    print(x,y)
+
+for x,y,z in zip([1,2,3],[4,5,6],[7,8,9]):
+    print(x,y,z)
+
+# # 09-1) Neural Net for XOR
+
+# 아래처럼 구하면 결과가 나오지 않음. 그 이유는 레이어가 하나라서. 그러므로 레이어를 더 추가해줘야함
+
+# +
+#XOR with logistic regression
+
+import numpy as np
+import tensorflow as tf
+
+x_data = np.array([[0,0],[0,1],[1,0],[1,1]], dtype = np.float32)
+y_data = np.array([[0], [1], [1], [0]], dtype = np.float32)
+
+x = tf.placeholder(tf.float32)
+y = tf.placeholder(tf.float32)
+w = tf.Variable(tf.random_normal([2,1]), name = 'weight')
+b = tf.Variable(tf.random_normal([1]), name = 'bias')
+
+#hypothesis using sigmoid
+hypothesis = tf.sigmoid(tf.matmul(x,w)+b)
+
+#cost/loss function
+cost = -tf.reduce_mean(y*tf.log(hypothesis)+(1-y)*tf.log(1-hypothesis))
+train = tf.train.GradientDescentOptimizer(learning_rate=0.1).minimize(cost)
+                                                                     
+#Accuracy computation
+#True if hypothesis >0.5 else False
+predicted = tf.cast(hypothesis>0.5,dtype=tf.float32)
+accuracy = tf.reduce_mean(tf.cast(tf.equal(predicted,y), dtype = tf.float32))
+
+#Launch graph
+with tf.Session() as sess:
+    #initialize tensorflow variables
+    sess.run(tf.global_variables_initializer())
+    
+    for step in range(10001):
+        sess.run(train, feed_dict={x: x_data, y:y_data})
+        if step % 2000 == 0:
+            print(step, sess.run(cost, feed_dict={x: x_data, y:y_data}), sess.run(w))
+            
+    h,c,a = sess.run([hypothesis, predicted, accuracy], feed_dict={x: x_data, y:y_data})
+    print("\nHypothesis: ", h, "\nCorrect: ", c, "\nAccuracy: ",a)
+# -
+
+# 레이어 추가해주기
+
+# +
+#XOR with logistic regression
+
+import numpy as np
+import tensorflow as tf
+
+x_data = np.array([[0,0],[0,1],[1,0],[1,1]], dtype = np.float32)
+y_data = np.array([[0], [1], [1], [0]], dtype = np.float32)
+
+x = tf.placeholder(tf.float32)
+y = tf.placeholder(tf.float32)
+
+w1 = tf.Variable(tf.random_normal([2,2]), name = 'weight1')
+# x를 두개로 나누었으니 input:2, output: 임의로 2라 설정
+# Wide NN for XOR: 만약 output을 10까지 넓히면 더 정확한 값이 나온다.
+# Deep NN for XOR: w1,2뿐만 아니라 wN까지 깊게 연결한다면 더 정확한 값이 나온다.
+
+b1 = tf.Variable(tf.random_normal([2]), name = 'bias1')
+#output이 2이므로 여기도 2
+
+layer1 = tf.sigmoid(tf.matmul(x,w1)+b1)
+
+w2 = tf.Variable(tf.random_normal([2,1]), name = 'weight2') #layer1의 값이 2개이니 input:2, output: y이므로 1
+b2 = tf.Variable(tf.random_normal([1]), name = 'bias2')
+
+#hypothesis using sigmoid
+hypothesis = tf.sigmoid(tf.matmul(layer1,w2)+b2)
+
+#cost/loss function
+cost = -tf.reduce_mean(y*tf.log(hypothesis)+(1-y)*tf.log(1-hypothesis))
+train = tf.train.GradientDescentOptimizer(learning_rate=0.1).minimize(cost)
+                                                                     
+#Accuracy computation
+#True if hypothesis >0.5 else False
+predicted = tf.cast(hypothesis>0.5,dtype=tf.float32)
+accuracy = tf.reduce_mean(tf.cast(tf.equal(predicted,y), dtype = tf.float32))
+
+#Launch graph
+with tf.Session() as sess:
+    #initialize tensorflow variables
+    sess.run(tf.global_variables_initializer())
+    
+    for step in range(10001):
+        sess.run(train, feed_dict={x: x_data, y:y_data})
+        if step % 2000 == 0:
+            print(step, sess.run(cost, feed_dict={x: x_data, y:y_data}), sess.run([w1, w2]))
+            
+    h,c,a = sess.run([hypothesis, predicted, accuracy], feed_dict={x: x_data, y:y_data})
+    print("\nHypothesis: ", h, "\nCorrect: ", c, "\nAccuracy: ",a)
+# -
+
+# # 09-2) Tensorboard (Neural Net for XOR)
+
+# TensorBoard: TF logging/debugging tool
+#
+# - visualize TF graph
+# - plot quantitative metrics
+# - show additional data
+#
+# #### 5 Steps of using TensorBoard
+#
+# 1) From TF graph, decide which tensors you want to log
+#     
+#    - w2_hist = tf.summary.histogram("weights2",w2)
+#    - cost_summ = tf.summary.scalar("cost",cost)
+#
+# 2) Merge all summaries
+#    
+#    - summary = tf.summary.merge_all()
+#
+# 3) Create writer and add graph
+#     
+#    - writer = tf.summary.FileWriter('./logs') <=파일의 위치
+#
+# 4) Run summary merge and add_summary
+#     
+#    - s, _ = sess.run([summary, optimizer], feed_dict=feed_dict)
+#    - writer.add_summary(s, global_step=global_step)
+#
+# 5) Launch TensorBoard
+#     
+#    - tensorboard --logdir=./logs
+
+
