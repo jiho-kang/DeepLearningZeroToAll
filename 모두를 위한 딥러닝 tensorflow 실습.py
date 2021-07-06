@@ -709,6 +709,50 @@ print("Prediction: ", tf.model.predict_classes(x_test))
 print("Accuracy: ", tf.model.evaluate(x_test, y_test)[1])
 # -
 
+# # 07-2) MNIST Dataset
+
+# +
+import tensorflow as tf
+from tensorflow.examples.tutorials.mnist import input_data
+
+nb_classes = 10
+
+x = tf.placeholder(tf.float32, [None,784])
+y = tf.placeholder(tf.float32, [None,nb_classes])
+
+w = tf.Variable(tf.random_normal([784,nb_classes]))
+b = tf.Variable(tf.random_normal([nb_classes]))
+
+mnist = input_data.read_data_sets("MNIST_Data/", one_hot = True)
+batch_cs, bath_ys = mnist.train.next_batch(100)
+
+hypothesis = tf.nn.softmax(tf.matmul(x,w)+b)
+cost = tf.reduce_mean(-tf.reduce_sum(y*tf.log(hypothesis), axis = 1))
+optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.1).minimize(cost)
+
+is_correct = tf.equal(tf.math.argmax(hypothesis, 1), tf.math.argmax(y,1))
+accuracy = tf.reduce_mean(tf.cast(is_correct, tf.float32))
+
+training_epochs = 15
+batch_size = 100
+
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+    for epoch in range(training_epochs):
+        avg_cost = 0
+        total_batch = int(mnist.train.num_examples / batch_size)
+        
+        for i in range(total_batch):
+            batch_xs, batch_ys = mnist.train.next_batch(batch_size)
+            c, _ = sess.run([cost,optimizer], feed_dict={x: batch_xs, y: batch_ys})
+            avg_cost += c / total_batch
+            
+        print('Epoch:', '%04d' % (epoch+1), 'cost =', '{:.9f}'.format(avg_cost))
+
+    print("Accuracy: ", accuracy.eval(session=sess, feed_dict={x: mnist.test.images, y: mnist.test.labels}))
+
+# -
+
 # # 08) Tensor Manipluation
 
 # #### simple ID array and slicing
@@ -1020,5 +1064,622 @@ with tf.Session() as sess:
 # 5) Launch TensorBoard
 #     
 #    - tensorboard --logdir=./logs
+
+# # 10) NN, ReLu, Xavier, Dropout and Adam
+
+# #### NN for MNIST using ReLu
+
+# 아래 코드는 왜 accuracy가 낮은가..?
+#
+# import random / tf.set_random_seed(777)을 추가해줬더니
+# 이번엔 아래 에러가 뜨네,,^^
+#
+# InvalidArgumentError: You must feed a value for placeholder tensor 'Placeholder_96' with dtype float and shape [?,784]
+
+# +
+import tensorflow as tf
+import random
+
+from tensorflow.examples.tutorials.mnist import input_data
+
+tf.set_random_seed(777)
+
+mnist = input_data.read_data_sets("MNIST_Data/", one_hot = True)
+#batch_cs, bath_ys = mnist.train.next_batch(100)
+
+
+training_epochs = 15
+batch_size = 100
+learning_rate = 0.001
+
+x = tf.placeholder(tf.float32, [None, 784])
+y = tf.placeholder(tf.float32, [None, 10])
+
+w1 = tf.Variable(tf.random_normal([784,256]))
+b1 = tf.Variable(tf.random_normal([256]))
+L1 = tf.nn.relu(tf.matmul(x,w1)+b1)
+
+w2 = tf.Variable(tf.random_normal([256,256]))
+b2 = tf.Variable(tf.random_normal([256]))
+L2 = tf.nn.relu(tf.matmul(L1,w2)+b2)
+
+w3 = tf.Variable(tf.random_normal([256,10]))
+b3 = tf.Variable(tf.random_normal([10]))
+hypothesis = tf.nn.relu(tf.matmul(L2,w3)+b3)
+
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=hypothesis, labels=y))
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+
+is_correct = tf.equal(tf.math.argmax(hypothesis, 1), tf.math.argmax(y,1))
+accuracy = tf.reduce_mean(tf.cast(is_correct, tf.float32))
+
+
+
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+    for epoch in range(training_epochs):
+        avg_cost = 0
+        total_batch = int(mnist.train.num_examples / batch_size)
+        
+        for i in range(total_batch):
+            batch_xs, batch_ys = mnist.train.next_batch(batch_size)
+            c, _ = sess.run([cost,optimizer], feed_dict={x: batch_xs, y: batch_ys})
+            avg_cost += c / total_batch
+            
+        print('Epoch:', '%04d' % (epoch+1), 'cost =', '{:.9f}'.format(avg_cost))
+
+    #print("Accuracy: ", accuracy.eval(session=sess, feed_dict={x: mnist.test.images, y: mnist.test.labels}))
+
+    correct_prediction = tf.equal(tf.argmax(hypothesis, 1), tf.argmax(Y, 1))
+    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    print('Accuracy:', sess.run(accuracy, feed_dict={
+          X: mnist.test.images, Y: mnist.test.labels}))
+# -
+
+# 모두의 딥러닝 깃허브 코드 - NN
+
+# +
+import tensorflow as tf
+import random
+
+# import matplotlib.pyplot as plt
+from tensorflow.examples.tutorials.mnist import input_data
+tf.set_random_seed(777)  # reproducibility
+mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+
+# parameters
+learning_rate = 0.001
+training_epochs = 15
+batch_size = 100
+
+# input place holders
+X = tf.placeholder(tf.float32, [None, 784])
+Y = tf.placeholder(tf.float32, [None, 10])
+
+# weights & bias for nn layers
+W1 = tf.Variable(tf.random_normal([784, 256]))
+b1 = tf.Variable(tf.random_normal([256]))
+L1 = tf.nn.relu(tf.matmul(X, W1) + b1)
+
+W2 = tf.Variable(tf.random_normal([256, 256]))
+b2 = tf.Variable(tf.random_normal([256]))
+L2 = tf.nn.relu(tf.matmul(L1, W2) + b2)
+
+W3 = tf.Variable(tf.random_normal([256, 10]))
+b3 = tf.Variable(tf.random_normal([10]))
+hypothesis = tf.matmul(L2, W3) + b3
+
+# define cost/loss & optimizer
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+    logits=hypothesis, labels=Y))
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+
+# initialize
+sess = tf.Session()
+sess.run(tf.global_variables_initializer())
+
+# train my model
+for epoch in range(training_epochs):
+    avg_cost = 0
+    total_batch = int(mnist.train.num_examples / batch_size)
+    for i in range(total_batch):
+        batch_xs, batch_ys = mnist.train.next_batch(batch_size)
+        feed_dict = {X: batch_xs, Y: batch_ys}
+        c, _ = sess.run([cost, optimizer], feed_dict=feed_dict)
+        avg_cost += c / total_batch
+    print('Epoch:', '%04d' % (epoch + 1), 'cost =', '{:.9f}'.format(avg_cost))
+print('Learning Finished!')
+
+# Test model and check accuracy
+correct_prediction = tf.equal(tf.argmax(hypothesis, 1), tf.argmax(Y, 1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+print('Accuracy:', sess.run(accuracy, feed_dict={
+      X: mnist.test.images, Y: mnist.test.labels}))
+
+# -
+
+# #### Xavier for MNIST
+# 초기값 알맞게 initialize 해주기
+
+# +
+import tensorflow as tf
+from tensorflow.examples.tutorials.mnist import input_data
+
+mnist = input_data.read_data_sets("MNIST_Data/", one_hot = True)
+batch_cs, bath_ys = mnist.train.next_batch(100)
+
+tf.reset_default_graph()
+
+x = tf.placeholder(tf.float32, [None, 784])
+y = tf.placeholder(tf.float32, [None, 10])
+
+w1 = tf.get_variable("w1", shape=[784,256],
+                     initializer = tf.contrib.layers.xavier_initializer())
+b1 = tf.Variable(tf.random_normal([256]))
+L1 = tf.nn.relu(tf.matmul(x,w1)+b1)
+
+w2 = tf.get_variable("w2", shape=[256,256],
+                     initializer = tf.contrib.layers.xavier_initializer())
+b2 = tf.Variable(tf.random_normal([256]))
+L2 = tf.nn.relu(tf.matmul(L1,w2)+b2)
+
+w3 = tf.get_variable("w3", shape=[256,10],
+                     initializer = tf.contrib.layers.xavier_initializer())
+b3 = tf.Variable(tf.random_normal([10]))
+hypothesis = tf.nn.relu(tf.matmul(L2,w3)+b3)
+
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=hypothesis, labels=y))
+optimizer = tf.train.AdamOptimizer(learning_rate=0.1).minimize(cost)
+
+is_correct = tf.equal(tf.math.argmax(hypothesis, 1), tf.math.argmax(y,1))
+accuracy = tf.reduce_mean(tf.cast(is_correct, tf.float32))
+
+training_epochs = 15
+batch_size = 100
+
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+    for epoch in range(training_epochs):
+        avg_cost = 0
+        total_batch = int(mnist.train.num_examples / batch_size)
+        
+        for i in range(total_batch):
+            batch_xs, batch_ys = mnist.train.next_batch(batch_size)
+            c, _ = sess.run([cost,optimizer], feed_dict={x: batch_xs, y: batch_ys})
+            avg_cost += c / total_batch
+            
+        print('Epoch:', '%04d' % (epoch+1), 'cost =', '{:.9f}'.format(avg_cost))
+
+    print("Accuracy: ", accuracy.eval(session=sess, feed_dict={x: mnist.test.images, y: mnist.test.labels}))
+
+# -
+
+# 모두의 딥러닝 깃허브 코드 - xavier
+
+# +
+import tensorflow as tf
+import random
+
+# import matplotlib.pyplot as plt
+from tensorflow.examples.tutorials.mnist import input_data
+tf.set_random_seed(777)  # reproducibility
+mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+
+
+# parameters
+learning_rate = 0.001
+training_epochs = 15
+batch_size = 100
+
+# input place holders
+X = tf.placeholder(tf.float32, [None, 784])
+Y = tf.placeholder(tf.float32, [None, 10])
+
+# weights & bias for nn layers
+W1 = tf.get_variable("W1", shape=[784, 256],
+                     initializer=tf.contrib.layers.xavier_initializer())
+b1 = tf.Variable(tf.random_normal([256]))
+L1 = tf.nn.relu(tf.matmul(X, W1) + b1)
+
+W2 = tf.get_variable("W2", shape=[256, 256],
+                     initializer=tf.contrib.layers.xavier_initializer())
+b2 = tf.Variable(tf.random_normal([256]))
+L2 = tf.nn.relu(tf.matmul(L1, W2) + b2)
+
+W3 = tf.get_variable("W3", shape=[256, 10],
+                     initializer=tf.contrib.layers.xavier_initializer())
+b3 = tf.Variable(tf.random_normal([10]))
+hypothesis = tf.matmul(L2, W3) + b3
+
+# define cost/loss & optimizer
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+    logits=hypothesis, labels=Y))
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+
+# initialize
+sess = tf.Session()
+sess.run(tf.global_variables_initializer())
+
+# train my model
+for epoch in range(training_epochs):
+    avg_cost = 0
+    total_batch = int(mnist.train.num_examples / batch_size)
+    for i in range(total_batch):
+        batch_xs, batch_ys = mnist.train.next_batch(batch_size)
+        feed_dict = {X: batch_xs, Y: batch_ys}
+        c, _ = sess.run([cost, optimizer], feed_dict=feed_dict)
+        avg_cost += c / total_batch
+    print('Epoch:', '%04d' % (epoch + 1), 'cost =', '{:.9f}'.format(avg_cost))
+print('Learning Finished!')
+
+# Test model and check accuracy
+correct_prediction = tf.equal(tf.argmax(hypothesis, 1), tf.argmax(Y, 1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+print('Accuracy:', sess.run(accuracy, feed_dict={
+      X: mnist.test.images, Y: mnist.test.labels}))
+# -
+
+# #### Deep NN for MNIST
+# 너무 깊어지고 넓어지면 overfitting이 될 수 있다.
+#
+# 모두의 딥러닝 깃허브 코드 - Deep NN
+#
+# 대체 뭐가 문제인가
+
+# +
+import tensorflow as tf
+import random
+
+# import matplotlib.pyplot as plt
+from tensorflow.examples.tutorials.mnist import input_data
+tf.set_random_seed(777)  # reproducibility
+mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+
+# parameters
+learning_rate = 0.001
+training_epochs = 15
+batch_size = 100
+
+# input place holders
+X = tf.placeholder(tf.float32, [None, 784])
+Y = tf.placeholder(tf.float32, [None, 10])
+
+tf.reset_default_graph()
+
+
+# weights & bias for nn layers
+W1 = tf.get_variable("W1", shape=[784, 512],
+                     initializer=tf.contrib.layers.xavier_initializer())
+b1 = tf.Variable(tf.random_normal([512]))
+L1 = tf.nn.relu(tf.matmul(X, W1) + b1)
+
+W2 = tf.get_variable("W2", shape=[512, 512],
+                     initializer=tf.contrib.layers.xavier_initializer())
+b2 = tf.Variable(tf.random_normal([512]))
+L2 = tf.nn.relu(tf.matmul(L1, W2) + b2)
+
+W3 = tf.get_variable("W3", shape=[512, 512],
+                     initializer=tf.contrib.layers.xavier_initializer())
+b3 = tf.Variable(tf.random_normal([512]))
+L3 = tf.nn.relu(tf.matmul(L2, W3) + b3)
+
+W4 = tf.get_variable("W4", shape=[512, 512],
+                     initializer=tf.contrib.layers.xavier_initializer())
+b4 = tf.Variable(tf.random_normal([512]))
+L4 = tf.nn.relu(tf.matmul(L3, W4) + b4)
+
+W5 = tf.get_variable("W5", shape=[512, 10],
+                     initializer=tf.contrib.layers.xavier_initializer())
+b5 = tf.Variable(tf.random_normal([10]))
+hypothesis = tf.matmul(L4, W5) + b5
+
+# define cost/loss & optimizer
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+    logits=hypothesis, labels=Y))
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+
+# initialize
+sess = tf.Session()
+sess.run(tf.global_variables_initializer())
+
+# train my model
+for epoch in range(training_epochs):
+    avg_cost = 0
+    total_batch = int(mnist.train.num_examples / batch_size)
+    for i in range(total_batch):
+        batch_xs, batch_ys = mnist.train.next_batch(batch_size)
+        feed_dict = {X: batch_xs, Y: batch_ys}
+        c, _ = sess.run([cost, optimizer], feed_dict=feed_dict)
+        avg_cost += c / total_batch
+    print('Epoch:', '%04d' % (epoch + 1), 'cost =', '{:.9f}'.format(avg_cost))
+print('Learning Finished!')
+
+# Test model and check accuracy
+correct_prediction = tf.equal(tf.argmax(hypothesis, 1), tf.argmax(Y, 1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+print('Accuracy:', sess.run(accuracy, feed_dict={
+      X: mnist.test.images, Y: mnist.test.labels}))
+# -
+
+# #### Dropout for MNIST
+
+# +
+import tensorflow as tf
+import random
+
+# import matplotlib.pyplot as plt
+from tensorflow.examples.tutorials.mnist import input_data
+tf.set_random_seed(777)  # reproducibility
+mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+
+
+# parameters
+learning_rate = 0.001
+training_epochs = 15
+batch_size = 100
+
+# input place holders
+X = tf.placeholder(tf.float32, [None, 784])
+Y = tf.placeholder(tf.float32, [None, 10])
+
+tf.reset_default_graph()
+
+# dropout (keep_prob) rate  0.7 on training, but should be 1 for testing
+keep_prob = tf.placeholder(tf.float32)
+
+# weights & bias for nn layers
+W1 = tf.get_variable("W1", shape=[784, 512],
+                     initializer=tf.contrib.layers.xavier_initializer())
+b1 = tf.Variable(tf.random_normal([512]))
+L1 = tf.nn.relu(tf.matmul(X, W1) + b1)
+L1 = tf.nn.dropout(L1, keep_prob=keep_prob)
+W2 = tf.get_variable("W2", shape=[512, 512],
+                     initializer=tf.contrib.layers.xavier_initializer())
+b2 = tf.Variable(tf.random_normal([512]))
+L2 = tf.nn.relu(tf.matmul(L1, W2) + b2)
+L2 = tf.nn.dropout(L2, keep_prob=keep_prob)
+W3 = tf.get_variable("W3", shape=[512, 512],
+                     initializer=tf.contrib.layers.xavier_initializer())
+b3 = tf.Variable(tf.random_normal([512]))
+L3 = tf.nn.relu(tf.matmul(L2, W3) + b3)
+L3 = tf.nn.dropout(L3, keep_prob=keep_prob)
+W4 = tf.get_variable("W4", shape=[512, 512],
+                     initializer=tf.contrib.layers.xavier_initializer())
+b4 = tf.Variable(tf.random_normal([512]))
+L4 = tf.nn.relu(tf.matmul(L3, W4) + b4)
+L4 = tf.nn.dropout(L4, keep_prob=keep_prob)
+W5 = tf.get_variable("W5", shape=[512, 10],
+                     initializer=tf.contrib.layers.xavier_initializer())
+b5 = tf.Variable(tf.random_normal([10]))
+hypothesis = tf.matmul(L4, W5) + b5
+
+# define cost/loss & optimizer
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+    logits=hypothesis, labels=Y))
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+
+# initialize
+sess = tf.Session()
+sess.run(tf.global_variables_initializer())
+
+# train my model
+for epoch in range(training_epochs):
+    avg_cost = 0
+    total_batch = int(mnist.train.num_examples / batch_size)
+    for i in range(total_batch):
+        batch_xs, batch_ys = mnist.train.next_batch(batch_size)
+        feed_dict = {X: batch_xs, Y: batch_ys, keep_prob: 0.7}
+        c, _ = sess.run([cost, optimizer], feed_dict=feed_dict)
+        avg_cost += c / total_batch
+    print('Epoch:', '%04d' % (epoch + 1), 'cost =', '{:.9f}'.format(avg_cost))
+print('Learning Finished!')
+
+# Test model and check accuracy
+correct_prediction = tf.equal(tf.argmax(hypothesis, 1), tf.argmax(Y, 1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+print('Accuracy:', sess.run(accuracy, feed_dict={
+      X: mnist.test.images, Y: mnist.test.labels, keep_prob: 1}))
+# -
+
+# # 11-1) CNN Basics
+
+# #### Simple convolution layer
+#
+#     input: 3x3x1
+#     filter: 2x2x1
+#     output: 2x2x1
+
+# Toy image
+
+# +
+import tensorflow as tf
+import numpy as np
+import matplotlib.pyplot as plt
+sess = tf.Session()
+
+sess = tf.InteractiveSession()
+image = np.array([[[[1],[2],[3]],
+                    [[4],[5],[6]],
+                    [[7],[8],[9]]]], dtype = np.float32)
+print(image.shape)
+plt.imshow(image.reshape(3,3), cmap='Greys')
+# -
+
+#     Image: 1,3,3,1
+#     Filter: 2,2,1,1, ( 2x2x1 1개)
+#     Stride: 1x1
+#     Padding: VALID
+#
+
+# +
+import tensorflow as tf
+import numpy as np
+import matplotlib.pyplot as plt
+
+print("image.shape",image.shape)
+
+weight = tf.constant([[[[1.]],[[1.]]],
+                      [[[1.]],[[1.]]]])
+print("weight.shape", weight.shape)
+
+conv2d = tf.nn.conv2d(image, weight, strides=[1,1,1,1], padding ="VALID")
+#stride = 1x1일 때, padding값을 'same'을 주면
+#input 크기와 output 크기를 갖게 맞추어 padding값을 자동으로 주게 된다.
+conv2d_img = conv2d.eval()
+print("conv2d_imag.shape", conv2d_img.shape)
+
+conv2d_img = np.swapaxes(conv2d_img,0,3)
+for i, one_img in enumerate(conv2d_img):
+    print(one_img.reshape(2,2))
+    plt.subplot(1,2,i+1), plt.imshow(one_img.reshape(2,2), cmap='gray')
+# -
+
+# Max Pooling
+
+imgae = np.array([[[[4],[3],
+                    [2],[1]]]], dtype=np.float32)
+pool = tf.nn.max_pool(image, ksize=[1,2,2,1],#weight
+                      strides = [1,1,1,1], padding='SAME')
+print(pool.shape)
+print(pool.eval())
+
+# 실전 이미지에 적용해보기
+
+# +
+from tensorflow.examples.tutorials.mnist import input_data
+mnist = input_data.read_data_sets("MNIST_data/", one_hot = True)
+
+img = mnist.train.images[0].reshape(28,28)#가장 첫번째 데이터를 28,28로 출력하기
+plt.imshow(img,cmap='gray')
+
+sess=tf.InteractiveSession()
+
+#28x28x1 사이즈로 reshape해라, 갯수는 너가 알아서 해! (-1)
+img = img.reshape(-1,28,28,1)
+
+#3x3x1 filter로 wieght를 줄 것이며, 5개 filter 사용.
+w1 = tf.Variable(tf.random_normal([3,3,1,5], stddev=0.01))
+
+#stride 2x2에서 padding='same'을 주면, input의 절반 사이즈 (여기서는 14)가 된다
+conv2d=tf.nn.conv2d(img,w1,strides=[1,2,2,1], padding='SAME')
+
+print(conv2d)
+sess.run(tf.global_variables_initializer())
+conv2d_img=conv2d.eval()
+conv2d_img= np.swapaxes(conv2d_img,0,3)
+for i, one_img in enumerate(conv2d_img):
+    plt.subplot(1,5,i+1),plt.imshow(one_img.reshape(14,14),cmap='gray')
+    
+
+
+# -
+
+#Max pooling을 해보자
+pool = tf.nn.max_pool(conv2d, ksize=[1,2,2,1], strides=[
+    1,2,2,1], padding='SAME')
+print(pool)
+sess.run(tf.global_variables_initializer())
+pool_img = pool.eval()
+pool_img = np.swapaxes(pool_img,0,3)
+for i, one_img in enumerate(pool_img):
+    plt.subplot(1,5,i+1),plt.imshow(one_img.reshape(7,7),cmap='gray')
+
+# # 11-2) MNIST 99% with CNN
+
+# +
+import tensorflow as tf
+import random
+import matplotlib.pyplot as plt
+
+from tensorflow.examples.tutorials.mnist import input_data
+
+tf.set_random_seed(777)  # reproducibility
+
+# hyper parameters
+learning_rate = 0.001
+training_epochs = 15
+batch_size = 100
+
+# input place holders
+X = tf.placeholder(tf.float32, [None, 784])
+X_img = tf.reshape(X, [-1, 28, 28, 1])   # img 28x28x1 (black/white)
+Y = tf.placeholder(tf.float32, [None, 10])
+
+# Conv layer1
+# L1 ImgIn shape=(?, 28, 28, 1)
+W1 = tf.Variable(tf.random_normal([3, 3, 1, 32], stddev=0.01))
+#    Conv     -> (?, 28, 28, 32)
+L1 = tf.nn.conv2d(X_img, W1, strides=[1, 1, 1, 1], padding='SAME')
+L1 = tf.nn.relu(L1)
+L1 = tf.nn.max_pool(L1, ksize=[1, 2, 2, 1],
+                    strides=[1, 2, 2, 1], padding='SAME')
+#    Pool     -> (?, 14, 14, 32)
+'''
+Tensor("Conv2D:0", shape=(?, 28, 28, 32), dtype=float32)
+Tensor("Relu:0", shape=(?, 28, 28, 32), dtype=float32)
+Tensor("MaxPool:0", shape=(?, 14, 14, 32), dtype=float32)
+'''
+
+#Conv layer2
+# L2 ImgIn shape=(?, 14, 14, 32)
+W2 = tf.Variable(tf.random_normal([3, 3, 32, 64], stddev=0.01))
+#    Conv      ->(?, 14, 14, 64)
+L2 = tf.nn.conv2d(L1, W2, strides=[1, 1, 1, 1], padding='SAME')
+L2 = tf.nn.relu(L2)
+L2 = tf.nn.max_pool(L2, ksize=[1, 2, 2, 1],
+                    strides=[1, 2, 2, 1], padding='SAME')
+#    Pool      ->(?, 7, 7, 64)
+L2_flat = tf.reshape(L2, [-1, 7 * 7 * 64])
+'''
+Tensor("Conv2D_1:0", shape=(?, 14, 14, 64), dtype=float32)
+Tensor("Relu_1:0", shape=(?, 14, 14, 64), dtype=float32)
+Tensor("MaxPool_1:0", shape=(?, 7, 7, 64), dtype=float32)
+Tensor("Reshape_1:0", shape=(?, 3136), dtype=float32)
+'''
+
+# Fully Connected(FC,Dense) layer
+# Final FC 7x7x64 inputs -> 10 outputs
+W3 = tf.get_variable("W3", shape=[7 * 7 * 64, 10],
+                     initializer=tf.contrib.layers.xavier_initializer())
+b = tf.Variable(tf.random_normal([10]))
+logits = tf.matmul(L2_flat, W3) + b
+
+# define cost/loss & optimizer
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+    logits=logits, labels=Y))
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+
+# initialize
+sess = tf.Session()
+sess.run(tf.global_variables_initializer())
+
+# train my model
+print('Learning started. It takes sometime.')
+for epoch in range(training_epochs):
+    avg_cost = 0
+    total_batch = int(mnist.train.num_examples / batch_size)
+
+    for i in range(total_batch):
+        batch_xs, batch_ys = mnist.train.next_batch(batch_size)
+        feed_dict = {X: batch_xs, Y: batch_ys}
+        c, _ = sess.run([cost, optimizer], feed_dict=feed_dict)
+        avg_cost += c / total_batch
+
+    print('Epoch:', '%04d' % (epoch + 1), 'cost =', '{:.9f}'.format(avg_cost))
+
+print('Learning Finished!')
+
+# Test model and check accuracy
+correct_prediction = tf.equal(tf.argmax(logits, 1), tf.argmax(Y, 1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+print('Accuracy:', sess.run(accuracy, feed_dict={
+      X: mnist.test.images, Y: mnist.test.labels}))
+# -
+
+# # 11-3) CNN class, Layers, Ensemble
+
+# 강좌로 들어~~~~
+#
+# https://www.youtube.com/watch?v=c62uTWdhhMw&list=PLlMkM4tgfjnLSOjrEJN31gZATbcj_MpUm&index=40
 
 
